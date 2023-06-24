@@ -42,7 +42,9 @@ func main() {
 ```
 
 The configuration struct will ensure, that required configuration values are present and that bool and int values are valid.  
-Sensitive values will be masked when printed.
+Sensitive values will be masked when printed:
+
+![config.Print()](./images/configuration_printout.png)
 
 Values can be accessed via the `config.Get()` function.
 
@@ -54,6 +56,10 @@ import (
 func someFunction() {
   // ...
   devMode := config.Get().Bool("DEV_MODE")
+	// ...
+	logLevel := config.Get().String("LOG_LEVEL")
+	// ...
+	dbPort := config.Get().Int("DB_PORT")
   // ...
 }
 ```
