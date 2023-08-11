@@ -233,7 +233,7 @@ func loadBoolValue(valueDescriptor *Descriptor) error {
 	}
 
 	if strings.ToLower(value) != "true" && strings.ToLower(value) != "false" {
-		return fmt.Errorf("environment variable %s must be either 'true' or 'false'", valueDescriptor.EnvionmentVariable)
+		return fmt.Errorf("environment variable %s must be either 'true' or 'false' | received '%s'", valueDescriptor.EnvionmentVariable, value)
 	}
 
 	valueDescriptor.Provided = true
@@ -258,7 +258,7 @@ func loadIntValue(valueDescriptor *Descriptor) error {
 
 	number, err := strconv.Atoi(value)
 	if err != nil {
-		return fmt.Errorf("environment variable %s must be a valid integer", valueDescriptor.EnvionmentVariable)
+		return fmt.Errorf("environment variable %s must be a valid integer | received '%s'", valueDescriptor.EnvionmentVariable, value)
 	}
 
 	valueDescriptor.Provided = true
