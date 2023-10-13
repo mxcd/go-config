@@ -10,6 +10,7 @@ import (
 
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/joho/godotenv"
+	"github.com/spf13/pflag"
 )
 
 type Value interface {
@@ -44,10 +45,40 @@ type applicationConfigType struct {
 	IntValues    map[string]*Descriptor
 }
 
+type valueSetter struct{}
+
 var applicationConfig applicationConfigType
 
 func Get() *applicationConfigType {
 	return &applicationConfig
+}
+
+func Set() *valueSetter {
+	return &valueSetter{}
+}
+
+func (s *valueSetter) String(key string, value string) {
+	descriptor, ok := applicationConfig.StringValues[key]
+	if !ok {
+		log.Panicf("Config value %s not found", key)
+	}
+	descriptor.Value = value
+}
+
+func (s *valueSetter) Bool(key string, value bool) {
+	descriptor, ok := applicationConfig.BoolValues[key]
+	if !ok {
+		log.Panicf("Config value %s not found", key)
+	}
+	descriptor.Value = value
+}
+
+func (s *valueSetter) Int(key string, value int) {
+	descriptor, ok := applicationConfig.IntValues[key]
+	if !ok {
+		log.Panicf("Config value %s not found", key)
+	}
+	descriptor.Value = value
 }
 
 func (c *applicationConfigType) String(key string) string {
@@ -171,7 +202,7 @@ func LoadConfig(values []Value) error {
 
 	for _, value := range values {
 		if err := loadConfigValue(value.Descriptor()); err != nil {
-			return err
+			log.Panic(err)
 		}
 	}
 
@@ -313,4 +344,33 @@ func GetSanatizedDefaultValue(valueDescriptor *Descriptor) string {
 	} else {
 		return fmt.Sprintf("%v", valueDescriptor.Default)
 	}
+}
+
+func BindPFlag(key string, flag *pflag.Flag) {
+	if flag == nil {
+		return
+	}
+
+	if valueDescriptor, ok := applicationConfig.StringValues[key]; ok {
+		valueDescriptor.Value = flag.Value.String()
+		applicationConfig.StringValues[key] = valueDescriptor
+		return
+	}
+
+	if valueDescriptor, ok := applicationConfig.BoolValues[key]; ok {
+		valueDescriptor.Value = strings.ToLower(flag.Value.String()) == "true"
+		applicationConfig.BoolValues[key] = valueDescriptor
+		return
+	}
+
+	if valueDescriptor, ok := applicationConfig.IntValues[key]; ok {
+		number, err := strconv.Atoi(flag.Value.String())
+		if err != nil {
+			log.Panicf("provided flag %s must be a valid integer | received '%s'", flag.Name, flag.Value.String())
+		}
+		valueDescriptor.Value = number
+		applicationConfig.IntValues[key] = valueDescriptor
+	}
+
+	log.Panicf("Config value %s not found", key)
 }
