@@ -325,11 +325,11 @@ func GetSensitiveProtectedValue(valueDescriptor *Descriptor) string {
 	if valueDescriptor.Sensitive {
 		switch valueDescriptor.TypeInfo.Type {
 		case StringType:
-			return strings.Repeat("*", len(valueDescriptor.Value.(string)))
+			return strings.Repeat("*", min(len(valueDescriptor.Value.(string)), 50))
 		case BoolType:
 			return "****"
 		case IntType:
-			return strings.Repeat("*", len(strconv.Itoa(valueDescriptor.Value.(int))))
+			return strings.Repeat("*", min(len(strconv.Itoa(valueDescriptor.Value.(int))), 50))
 		default:
 			return "****"
 		}
