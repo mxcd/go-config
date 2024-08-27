@@ -13,6 +13,11 @@ import (
 	"github.com/spf13/pflag"
 )
 
+type LoadConfigOptions struct {
+	DotEnvFile  string
+	DotEnvFiles []string
+}
+
 type Value interface {
 	Descriptor() *Descriptor
 }
@@ -188,7 +193,21 @@ func (b *intBuilder) Sensitive() *intBuilder {
 }
 
 func LoadConfig(values []Value) error {
-	if err := loadDotEnvFile(); err != nil {
+	return LoadConfigWithOptions(values, &LoadConfigOptions{})
+}
+
+func LoadConfigWithOptions(values []Value, options *LoadConfigOptions) error {
+
+	dotEnvFiles := []string{}
+	if options.DotEnvFile != "" {
+		dotEnvFiles = append(dotEnvFiles, options.DotEnvFile)
+	}
+
+	if len(options.DotEnvFiles) > 0 {
+		dotEnvFiles = append(dotEnvFiles, options.DotEnvFiles...)
+	}
+
+	if err := loadDotEnvFile(dotEnvFiles); err != nil {
 		log.Printf("No .env file found. Relying on environment variables.")
 	} else {
 		log.Printf("Loaded .env file.")
@@ -209,8 +228,8 @@ func LoadConfig(values []Value) error {
 	return nil
 }
 
-func loadDotEnvFile() error {
-	return godotenv.Load()
+func loadDotEnvFile(dotEnvFiles []string) error {
+	return godotenv.Load(dotEnvFiles...)
 }
 
 func loadConfigValue(valueDescriptor *Descriptor) error {
