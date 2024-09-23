@@ -25,9 +25,10 @@ type Value interface {
 type ValueType string
 
 const (
-	StringType ValueType = "string"
-	BoolType   ValueType = "bool"
-	IntType    ValueType = "int"
+	StringType      ValueType = "string"
+	StringArrayType ValueType = "string_array"
+	BoolType        ValueType = "bool"
+	IntType         ValueType = "int"
 )
 
 type TypeInfo struct {
@@ -45,9 +46,10 @@ type Descriptor struct {
 }
 
 type applicationConfigType struct {
-	StringValues map[string]*Descriptor
-	BoolValues   map[string]*Descriptor
-	IntValues    map[string]*Descriptor
+	StringValues      map[string]*Descriptor
+	StringArrayValues map[string]*Descriptor
+	BoolValues        map[string]*Descriptor
+	IntValues         map[string]*Descriptor
 }
 
 type valueSetter struct{}
@@ -63,6 +65,14 @@ func Set() *valueSetter {
 }
 
 func (s *valueSetter) String(key string, value string) {
+	descriptor, ok := applicationConfig.StringValues[key]
+	if !ok {
+		log.Panicf("Config value %s not found", key)
+	}
+	descriptor.Value = value
+}
+
+func (s *valueSetter) StringArray(key string, value string) {
 	descriptor, ok := applicationConfig.StringValues[key]
 	if !ok {
 		log.Panicf("Config value %s not found", key)
@@ -92,6 +102,14 @@ func (c *applicationConfigType) String(key string) string {
 		log.Panicf("Config value %s not found", key)
 	}
 	return descriptor.Value.(string)
+}
+
+func (c *applicationConfigType) StringArray(key string) []string {
+	descriptor, ok := c.StringArrayValues[key]
+	if !ok {
+		log.Panicf("Config value %s not found", key)
+	}
+	return descriptor.Value.([]string)
 }
 
 func (c *applicationConfigType) Bool(key string) bool {
@@ -136,6 +154,36 @@ func (b *stringBuilder) NotEmpty() *stringBuilder {
 	return b
 }
 func (b *stringBuilder) Sensitive() *stringBuilder {
+	b.desc.Sensitive = true
+	return b
+}
+
+type stringArrayBuilder struct {
+	desc *Descriptor
+}
+
+func (b *stringArrayBuilder) Descriptor() *Descriptor {
+	return b.desc
+}
+func StringArray(environmentVariable string) *stringArrayBuilder {
+	return &stringArrayBuilder{
+		desc: &Descriptor{
+			EnvionmentVariable: environmentVariable,
+			NotEmpty:           false,
+			Sensitive:          false,
+			TypeInfo:           TypeInfo{Type: StringArrayType},
+		},
+	}
+}
+func (b *stringArrayBuilder) Default(defaultValue []string) *stringArrayBuilder {
+	b.desc.Default = defaultValue
+	return b
+}
+func (b *stringArrayBuilder) NotEmpty() *stringArrayBuilder {
+	b.desc.NotEmpty = true
+	return b
+}
+func (b *stringArrayBuilder) Sensitive() *stringArrayBuilder {
 	b.desc.Sensitive = true
 	return b
 }
@@ -214,9 +262,10 @@ func LoadConfigWithOptions(values []Value, options *LoadConfigOptions) error {
 	}
 
 	applicationConfig = applicationConfigType{
-		StringValues: make(map[string]*Descriptor),
-		BoolValues:   make(map[string]*Descriptor),
-		IntValues:    make(map[string]*Descriptor),
+		StringValues:      make(map[string]*Descriptor),
+		StringArrayValues: make(map[string]*Descriptor),
+		BoolValues:        make(map[string]*Descriptor),
+		IntValues:         make(map[string]*Descriptor),
 	}
 
 	for _, value := range values {
@@ -236,6 +285,8 @@ func loadConfigValue(valueDescriptor *Descriptor) error {
 	switch valueDescriptor.TypeInfo.Type {
 	case StringType:
 		return loadStringValue(valueDescriptor)
+	case StringArrayType:
+		return loadStringArrayValue(valueDescriptor)
 	case BoolType:
 		return loadBoolValue(valueDescriptor)
 	case IntType:
@@ -265,6 +316,38 @@ func loadStringValue(valueDescriptor *Descriptor) error {
 	valueDescriptor.Provided = true
 	valueDescriptor.Value = value
 	applicationConfig.StringValues[valueDescriptor.EnvionmentVariable] = valueDescriptor
+
+	return nil
+}
+
+func loadStringArrayValue(valueDescriptor *Descriptor) error {
+	value, ok := os.LookupEnv(valueDescriptor.EnvionmentVariable)
+
+	if !ok {
+		if valueDescriptor.Default != nil {
+			valueDescriptor.Value = valueDescriptor.Default.([]string)
+			applicationConfig.StringArrayValues[valueDescriptor.EnvionmentVariable] = valueDescriptor
+			return nil
+		} else {
+			return fmt.Errorf("missing environment variable %s", valueDescriptor.EnvionmentVariable)
+		}
+	}
+
+	stringItems := strings.Split(value, ",")
+	stringArray := []string{}
+	for _, item := range stringItems {
+		if item != "" {
+			stringArray = append(stringArray, strings.TrimSpace(item))
+		}
+	}
+
+	if valueDescriptor.NotEmpty && len(stringArray) == 0 {
+		return fmt.Errorf("environment variable %s must not be empty", valueDescriptor.EnvionmentVariable)
+	}
+
+	valueDescriptor.Provided = true
+	valueDescriptor.Value = stringArray
+	applicationConfig.StringArrayValues[valueDescriptor.EnvionmentVariable] = valueDescriptor
 
 	return nil
 }
