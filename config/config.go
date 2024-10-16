@@ -408,16 +408,16 @@ func Print() {
 	t.AppendHeader(table.Row{"ENV VAR", "Type", "Default Value", "Value Provided", "Current Value"})
 
 	for _, value := range applicationConfig.StringValues {
-		t.AppendRow(table.Row{value.EnvionmentVariable, "string", GetSanatizedDefaultValue(value), GetTruncated(value, value.Provided), GetSensitiveProtectedValue(value)})
+		t.AppendRow(table.Row{value.EnvionmentVariable, "string", GetSanatizedDefaultValue(value), value.Provided, MaskSensitiveString(value, GetTruncated(value, value.Value))})
 	}
 	for _, value := range applicationConfig.BoolValues {
-		t.AppendRow(table.Row{value.EnvionmentVariable, "bool", GetSanatizedDefaultValue(value), GetTruncated(value, value.Provided), GetSensitiveProtectedValue(value)})
+		t.AppendRow(table.Row{value.EnvionmentVariable, "bool", GetSanatizedDefaultValue(value), value.Provided, MaskSensitiveString(value, GetTruncated(value, value.Value))})
 	}
 	for _, value := range applicationConfig.IntValues {
-		t.AppendRow(table.Row{value.EnvionmentVariable, "int", GetSanatizedDefaultValue(value), GetTruncated(value, value.Provided), GetSensitiveProtectedValue(value)})
+		t.AppendRow(table.Row{value.EnvionmentVariable, "int", GetSanatizedDefaultValue(value), value.Provided, MaskSensitiveString(value, GetTruncated(value, value.Value))})
 	}
 	for _, value := range applicationConfig.StringArrayValues {
-		t.AppendRow(table.Row{value.EnvionmentVariable, "string[]", GetSanatizedDefaultValue(value), GetTruncated(value, value.Provided), GetSensitiveProtectedValue(value)})
+		t.AppendRow(table.Row{value.EnvionmentVariable, "string", GetSanatizedDefaultValue(value), value.Provided, MaskSensitiveString(value, GetTruncated(value, value.Value))})
 	}
 	t.SortBy([]table.SortBy{
 		{Name: "ENV VAR", Mode: table.Asc},
@@ -426,20 +426,20 @@ func Print() {
 	t.Render()
 }
 
-func GetSensitiveProtectedValue(valueDescriptor *Descriptor) string {
+func MaskSensitiveString(valueDescriptor *Descriptor, value string) string {
 	if valueDescriptor.Sensitive {
 		switch valueDescriptor.TypeInfo.Type {
 		case StringType:
-			return strings.Repeat("*", min(len(valueDescriptor.Value.(string)), 50))
+			return strings.Repeat("*", len(value))
 		case BoolType:
 			return "****"
 		case IntType:
-			return strings.Repeat("*", min(len(strconv.Itoa(valueDescriptor.Value.(int))), 50))
+			return strings.Repeat("*", len(value))
 		default:
 			return "****"
 		}
 	} else {
-		return fmt.Sprintf("%v", valueDescriptor.Value)
+		return value
 	}
 }
 
