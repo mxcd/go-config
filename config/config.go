@@ -408,13 +408,16 @@ func Print() {
 	t.AppendHeader(table.Row{"ENV VAR", "Type", "Default Value", "Value Provided", "Current Value"})
 
 	for _, value := range applicationConfig.StringValues {
-		t.AppendRow(table.Row{value.EnvionmentVariable, "string", GetSanatizedDefaultValue(value), value.Provided, GetSensitiveProtectedValue(value)})
+		t.AppendRow(table.Row{value.EnvionmentVariable, "string", GetSanatizedDefaultValue(value), GetTruncated(value, value.Provided), GetSensitiveProtectedValue(value)})
 	}
 	for _, value := range applicationConfig.BoolValues {
-		t.AppendRow(table.Row{value.EnvionmentVariable, "bool", GetSanatizedDefaultValue(value), value.Provided, GetSensitiveProtectedValue(value)})
+		t.AppendRow(table.Row{value.EnvionmentVariable, "bool", GetSanatizedDefaultValue(value), GetTruncated(value, value.Provided), GetSensitiveProtectedValue(value)})
 	}
 	for _, value := range applicationConfig.IntValues {
-		t.AppendRow(table.Row{value.EnvionmentVariable, "int", GetSanatizedDefaultValue(value), value.Provided, GetSensitiveProtectedValue(value)})
+		t.AppendRow(table.Row{value.EnvionmentVariable, "int", GetSanatizedDefaultValue(value), GetTruncated(value, value.Provided), GetSensitiveProtectedValue(value)})
+	}
+	for _, value := range applicationConfig.StringArrayValues {
+		t.AppendRow(table.Row{value.EnvionmentVariable, "string[]", GetSanatizedDefaultValue(value), GetTruncated(value, value.Provided), GetSensitiveProtectedValue(value)})
 	}
 	t.SortBy([]table.SortBy{
 		{Name: "ENV VAR", Mode: table.Asc},
@@ -444,7 +447,30 @@ func GetSanatizedDefaultValue(valueDescriptor *Descriptor) string {
 	if valueDescriptor.Default == nil {
 		return "-"
 	} else {
-		return fmt.Sprintf("%v", valueDescriptor.Default)
+		return GetTruncated(valueDescriptor, valueDescriptor.Default)
+	}
+}
+
+func GetTruncated(valueDescriptor *Descriptor, value any) string {
+	truncate := func(s string) string {
+		if len(s) > 50 {
+			return s[:47] + "..."
+		}
+		return s
+	}
+	switch valueDescriptor.TypeInfo.Type {
+	case StringType:
+		return truncate(value.(string))
+	case BoolType:
+		return fmt.Sprintf("%v", value)
+	case IntType:
+		valueString := fmt.Sprintf("%v", value)
+		return truncate(valueString)
+	case StringArrayType:
+		valueString := strings.Join(value.([]string), ", ")
+		return truncate(valueString)
+	default:
+		return ""
 	}
 }
 
