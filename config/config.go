@@ -72,12 +72,13 @@ func (s *valueSetter) String(key string, value string) {
 	descriptor.Value = value
 }
 
+// StringArray sets a string array value from a comma separated string, parsed like the environment variable.
 func (s *valueSetter) StringArray(key string, value string) {
-	descriptor, ok := applicationConfig.StringValues[key]
+	descriptor, ok := applicationConfig.StringArrayValues[key]
 	if !ok {
 		log.Panicf("Config value %s not found", key)
 	}
-	descriptor.Value = value
+	descriptor.Value = parseStringArray(value)
 }
 
 func (s *valueSetter) Bool(key string, value bool) {
@@ -270,7 +271,7 @@ func LoadConfigWithOptions(values []Value, options *LoadConfigOptions) error {
 
 	for _, value := range values {
 		if err := loadConfigValue(value.Descriptor()); err != nil {
-			log.Panic(err)
+			return err
 		}
 	}
 
@@ -333,13 +334,7 @@ func loadStringArrayValue(valueDescriptor *Descriptor) error {
 		}
 	}
 
-	stringItems := strings.Split(value, ",")
-	stringArray := []string{}
-	for _, item := range stringItems {
-		if item != "" {
-			stringArray = append(stringArray, strings.TrimSpace(item))
-		}
-	}
+	stringArray := parseStringArray(value)
 
 	if valueDescriptor.NotEmpty && len(stringArray) == 0 {
 		return fmt.Errorf("environment variable %s must not be empty", valueDescriptor.EnvionmentVariable)
@@ -350,6 +345,17 @@ func loadStringArrayValue(valueDescriptor *Descriptor) error {
 	applicationConfig.StringArrayValues[valueDescriptor.EnvionmentVariable] = valueDescriptor
 
 	return nil
+}
+
+func parseStringArray(value string) []string {
+	stringItems := strings.Split(value, ",")
+	stringArray := []string{}
+	for _, item := range stringItems {
+		if item != "" {
+			stringArray = append(stringArray, strings.TrimSpace(item))
+		}
+	}
+	return stringArray
 }
 
 func loadBoolValue(valueDescriptor *Descriptor) error {
@@ -447,7 +453,7 @@ func GetSanatizedDefaultValue(valueDescriptor *Descriptor) string {
 	if valueDescriptor.Default == nil {
 		return "-"
 	} else {
-		return GetTruncated(valueDescriptor, valueDescriptor.Default)
+		return MaskSensitiveString(valueDescriptor, GetTruncated(valueDescriptor, valueDescriptor.Default))
 	}
 }
 
@@ -498,6 +504,7 @@ func BindPFlag(key string, flag *pflag.Flag) {
 		}
 		valueDescriptor.Value = number
 		applicationConfig.IntValues[key] = valueDescriptor
+		return
 	}
 
 	log.Panicf("Config value %s not found", key)

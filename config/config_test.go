@@ -3,6 +3,7 @@ package config
 import (
 	"testing"
 
+	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -47,4 +48,36 @@ func TestConfig(t *testing.T) {
 	assert.Equal(false, Get().Bool("BOOL_FALSE"))
 	assert.Equal(true, Get().Bool("BOOL_DEFAULT_TRUE"))
 	assert.Equal(false, Get().Bool("BOOL_DEFAULT_FALSE"))
+}
+
+func TestSensitiveDefaultIsMasked(t *testing.T) {
+	descriptor := String("SECRET").Default("hunter2").Sensitive().Descriptor()
+	assert.NotContains(t, GetSanatizedDefaultValue(descriptor), "hunter2")
+}
+
+func TestSetStringArray(t *testing.T) {
+	t.Setenv("STRING_ARRAY_SET", "a,b")
+	assert.NoError(t, LoadConfig([]Value{StringArray("STRING_ARRAY_SET")}))
+
+	assert.NotPanics(t, func() { Set().StringArray("STRING_ARRAY_SET", "c, d") })
+	assert.Equal(t, []string{"c", "d"}, Get().StringArray("STRING_ARRAY_SET"))
+}
+
+func TestBindPFlagInt(t *testing.T) {
+	t.Setenv("PORT", "8080")
+	assert.NoError(t, LoadConfig([]Value{Int("PORT")}))
+
+	flags := pflag.NewFlagSet("test", pflag.ContinueOnError)
+	flags.Int("port", 0, "")
+	assert.NoError(t, flags.Set("port", "9090"))
+
+	assert.NotPanics(t, func() { BindPFlag("PORT", flags.Lookup("port")) })
+	assert.Equal(t, 9090, Get().Int("PORT"))
+}
+
+func TestLoadConfigReturnsValidationError(t *testing.T) {
+	t.Setenv("INVALID_INT", "abc")
+	assert.NotPanics(t, func() {
+		assert.Error(t, LoadConfig([]Value{Int("INVALID_INT")}))
+	})
 }
